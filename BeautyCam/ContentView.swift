@@ -15,45 +15,95 @@ import Vision
 
 struct ContentView: View {
     @State private var isFaceBeautyEnabled = true
+    @State private var eyeSize: Double = 0.25
+    @State private var noseSize: Double = 0.20
+    @State private var faceLine: Double = 0.20
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            CameraView(isFaceBeautyEnabled: $isFaceBeautyEnabled)
+            CameraView(
+                isFaceBeautyEnabled: $isFaceBeautyEnabled,
+                eyeSize: $eyeSize,
+                noseSize: $noseSize,
+                faceLine: $faceLine
+            )
                 .ignoresSafeArea()
 
-            Toggle(isOn: $isFaceBeautyEnabled) {
-                Text("美顔（目拡大）")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+            VStack(spacing: 10) {
+                Toggle(isOn: $isFaceBeautyEnabled) {
+                    Text("美顔ON")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                }
+                .toggleStyle(.switch)
+
+                BeautySliderRow(title: "目の大きさ", value: $eyeSize, range: 0...0.45)
+                BeautySliderRow(title: "小鼻サイズ", value: $noseSize, range: 0...0.45)
+                BeautySliderRow(title: "フェイスライン", value: $faceLine, range: 0...0.45)
             }
-            .toggleStyle(.switch)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background(.black.opacity(0.45), in: Capsule())
-            .padding(.bottom, 28)
+            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.bottom, 20)
         }
         .background(.black)
     }
 }
 
+private struct BeautySliderRow: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .frame(width: 100, alignment: .leading)
+
+            Slider(value: $value, in: range)
+                .tint(.white)
+        }
+    }
+}
+
 private struct CameraView: UIViewRepresentable {
     @Binding var isFaceBeautyEnabled: Bool
+    @Binding var eyeSize: Double
+    @Binding var noseSize: Double
+    @Binding var faceLine: Double
 
     func makeUIView(context: Context) -> CameraMetalView {
         let view = CameraMetalView()
         view.updateFaceBeautyEnabled(isFaceBeautyEnabled)
+        view.updateAdjustments(eyeSize: CGFloat(eyeSize), noseSize: CGFloat(noseSize), faceLine: CGFloat(faceLine))
         return view
     }
 
     func updateUIView(_ uiView: CameraMetalView, context: Context) {
         uiView.updateFaceBeautyEnabled(isFaceBeautyEnabled)
+        uiView.updateAdjustments(eyeSize: CGFloat(eyeSize), noseSize: CGFloat(noseSize), faceLine: CGFloat(faceLine))
     }
 }
 
 final class CameraMetalView: UIView {
+    private struct FeatureAdjustments {
+        var eyeSize: CGFloat = 0.25
+        var noseSize: CGFloat = 0.20
+        var faceLine: CGFloat = 0.20
+    }
+
     private struct EyeWarp {
         let center: CGPoint
         let radius: CGFloat
+    }
+
+    private struct FaceWarpState {
+        var eyes: [EyeWarp] = []
+        var nose: EyeWarp?
+        var chin: EyeWarp?
     }
 
     private let captureSession = AVCaptureSession()
@@ -63,7 +113,8 @@ final class CameraMetalView: UIView {
     private let stateQueue = DispatchQueue(label: "BeautyCam.state.queue")
     private var _isFaceBeautyEnabled = true
     private var latestImage: CIImage?
-    private var eyeWarps: [EyeWarp] = []
+    private var faceWarpState = FaceWarpState()
+    private var featureAdjustments = FeatureAdjustments()
     private var frameCounter = 0
 
     private let metalDevice: MTLDevice
@@ -107,6 +158,16 @@ final class CameraMetalView: UIView {
     func updateFaceBeautyEnabled(_ enabled: Bool) {
         stateQueue.async {
             self._isFaceBeautyEnabled = enabled
+        }
+    }
+
+    func updateAdjustments(eyeSize: CGFloat, noseSize: CGFloat, faceLine: CGFloat) {
+        stateQueue.async {
+            self.featureAdjustments = FeatureAdjustments(
+                eyeSize: eyeSize,
+                noseSize: noseSize,
+                faceLine: faceLine
+            )
         }
     }
 
@@ -215,24 +276,51 @@ final class CameraMetalView: UIView {
     }
 
     private func processFrame(_ image: CIImage) -> CIImage {
-        let state = stateQueue.sync { (_isFaceBeautyEnabled, eyeWarps) }
+        let state = stateQueue.sync { (_isFaceBeautyEnabled, faceWarpState, featureAdjustments) }
         let isFaceBeautyEnabled = state.0
-        let currentEyeWarps = state.1
-        guard isFaceBeautyEnabled, !currentEyeWarps.isEmpty else { return image }
+        let warpState = state.1
+        let adjustments = state.2
+        guard isFaceBeautyEnabled else { return image }
 
         var output = image
-        for eyeWarp in currentEyeWarps {
+        for eyeWarp in warpState.eyes {
             let filter = CIFilter.bumpDistortion()
             filter.inputImage = output
             filter.center = eyeWarp.center
             filter.radius = Float(eyeWarp.radius)
-            filter.scale = 0.25
+            filter.scale = Float(adjustments.eyeSize)
             output = filter.outputImage ?? output
         }
+
+        if let noseWarp = warpState.nose, adjustments.noseSize > 0 {
+            let filter = CIFilter.pinchDistortion()
+            filter.inputImage = output
+            filter.center = noseWarp.center
+            filter.radius = Float(noseWarp.radius)
+            filter.scale = Float(adjustments.noseSize * 0.9)
+            output = filter.outputImage ?? output
+        }
+
+        if let chinWarp = warpState.chin, adjustments.faceLine > 0 {
+            let lowerPinch = CIFilter.pinchDistortion()
+            lowerPinch.inputImage = output
+            lowerPinch.center = chinWarp.center
+            lowerPinch.radius = Float(chinWarp.radius)
+            lowerPinch.scale = Float(adjustments.faceLine * 0.95)
+            output = lowerPinch.outputImage ?? output
+
+            let upperPinch = CIFilter.pinchDistortion()
+            upperPinch.inputImage = output
+            upperPinch.center = CGPoint(x: chinWarp.center.x, y: chinWarp.center.y + chinWarp.radius * 0.55)
+            upperPinch.radius = Float(chinWarp.radius * 0.75)
+            upperPinch.scale = Float(adjustments.faceLine * 0.45)
+            output = upperPinch.outputImage ?? output
+        }
+
         return output
     }
 
-    private func updateEyeWarpsIfNeeded(pixelBuffer: CVPixelBuffer, imageSize: CGSize) {
+    private func updateFaceWarpsIfNeeded(pixelBuffer: CVPixelBuffer, imageSize: CGSize) {
         let shouldRunDetection = stateQueue.sync {
             frameCounter += 1
             return frameCounter % 4 == 0
@@ -249,70 +337,119 @@ final class CameraMetalView: UIView {
 
         guard let face = request.results?.first else {
             stateQueue.async {
-                self.eyeWarps = []
+                self.faceWarpState = FaceWarpState()
             }
             return
         }
 
-        let newWarps = makeEyeWarps(from: face, imageSize: imageSize)
+        let newWarps = makeFaceWarpState(from: face, imageSize: imageSize)
         stateQueue.async {
-            self.eyeWarps = newWarps
+            self.faceWarpState = newWarps
         }
     }
 
-    private func makeEyeWarps(from face: VNFaceObservation, imageSize: CGSize) -> [EyeWarp] {
-        guard let landmarks = face.landmarks else { return [] }
-
-        var warps: [EyeWarp] = []
-        if let leftEye = landmarks.leftEye, let leftWarp = makeEyeWarp(from: leftEye, faceBoundingBox: face.boundingBox, imageSize: imageSize) {
-            warps.append(leftWarp)
-        }
-        if let rightEye = landmarks.rightEye, let rightWarp = makeEyeWarp(from: rightEye, faceBoundingBox: face.boundingBox, imageSize: imageSize) {
-            warps.append(rightWarp)
-        }
-        return warps
-    }
-
-    private func makeEyeWarp(
-        from region: VNFaceLandmarkRegion2D,
-        faceBoundingBox: CGRect,
-        imageSize: CGSize
-    ) -> EyeWarp? {
-        guard region.pointCount > 0 else { return nil }
-
+    private func makeFaceWarpState(from face: VNFaceObservation, imageSize: CGSize) -> FaceWarpState {
+        guard let landmarks = face.landmarks else { return FaceWarpState() }
         let faceRect = CGRect(
-            x: faceBoundingBox.origin.x * imageSize.width,
-            y: faceBoundingBox.origin.y * imageSize.height,
-            width: faceBoundingBox.size.width * imageSize.width,
-            height: faceBoundingBox.size.height * imageSize.height
+            x: face.boundingBox.origin.x * imageSize.width,
+            y: face.boundingBox.origin.y * imageSize.height,
+            width: face.boundingBox.size.width * imageSize.width,
+            height: face.boundingBox.size.height * imageSize.height
         )
 
-        let points: [CGPoint] = (0..<region.pointCount).map { index in
+        var state = FaceWarpState()
+        if let leftEye = landmarks.leftEye, let leftWarp = makeFeatureWarp(from: leftEye, faceRect: faceRect, radiusMultiplier: 2.4) {
+            state.eyes.append(leftWarp)
+        }
+        if let rightEye = landmarks.rightEye, let rightWarp = makeFeatureWarp(from: rightEye, faceRect: faceRect, radiusMultiplier: 2.4) {
+            state.eyes.append(rightWarp)
+        }
+
+        if let nose = landmarks.nose, let noseWarp = makeNoseWarp(from: nose, faceRect: faceRect) {
+            state.nose = noseWarp
+        } else {
+            state.nose = EyeWarp(
+                center: CGPoint(x: faceRect.midX, y: faceRect.minY + faceRect.height * 0.50),
+                radius: max(16, faceRect.width * 0.09)
+            )
+        }
+
+        state.chin = makeChinWarp(landmarks: landmarks, faceRect: faceRect)
+        return state
+    }
+
+    private func makeNoseWarp(from region: VNFaceLandmarkRegion2D, faceRect: CGRect) -> EyeWarp? {
+        let points = makePoints(from: region, faceRect: faceRect)
+        guard !points.isEmpty else { return nil }
+
+        let minY = points.map(\.y).min() ?? 0
+        let maxY = points.map(\.y).max() ?? 0
+        let cutoffY = minY + (maxY - minY) * 0.45
+        let lowerNosePoints = points.filter { $0.y <= cutoffY }
+        let target = lowerNosePoints.isEmpty ? points : lowerNosePoints
+
+        let center = centroid(of: target)
+        let baseRadius = maxDistance(from: center, points: target)
+        let radius = max(14, min(faceRect.width * 0.13, baseRadius * 1.8))
+        return EyeWarp(center: center, radius: radius)
+    }
+
+    private func makeChinWarp(landmarks: VNFaceLandmarks2D, faceRect: CGRect) -> EyeWarp {
+        if let contour = landmarks.faceContour {
+            let points = makePoints(from: contour, faceRect: faceRect)
+            if let chinPoint = points.min(by: { $0.y < $1.y }) {
+                return EyeWarp(
+                    center: CGPoint(x: chinPoint.x, y: chinPoint.y + faceRect.height * 0.03),
+                    radius: max(30, faceRect.width * 0.20)
+                )
+            }
+        }
+
+        return EyeWarp(
+            center: CGPoint(x: faceRect.midX, y: faceRect.minY + faceRect.height * 0.08),
+            radius: max(30, faceRect.width * 0.20)
+        )
+    }
+
+    private func makeFeatureWarp(
+        from region: VNFaceLandmarkRegion2D,
+        faceRect: CGRect,
+        radiusMultiplier: CGFloat
+    ) -> EyeWarp? {
+        let points = makePoints(from: region, faceRect: faceRect)
+        guard !points.isEmpty else { return nil }
+
+        let center = centroid(of: points)
+        let maxDistance = maxDistance(from: center, points: points)
+
+        let radius = max(20, maxDistance * radiusMultiplier)
+        return EyeWarp(center: center, radius: radius)
+    }
+
+    private func makePoints(from region: VNFaceLandmarkRegion2D, faceRect: CGRect) -> [CGPoint] {
+        guard region.pointCount > 0 else { return [] }
+        return (0..<region.pointCount).map { index in
             let p = region.normalizedPoints[index]
             return CGPoint(
                 x: faceRect.origin.x + CGFloat(p.x) * faceRect.width,
                 y: faceRect.origin.y + CGFloat(p.y) * faceRect.height
             )
         }
+    }
 
-        var sumX: CGFloat = 0
-        var sumY: CGFloat = 0
-        for point in points {
-            sumX += point.x
-            sumY += point.y
+    private func centroid(of points: [CGPoint]) -> CGPoint {
+        let sum = points.reduce(CGPoint.zero) { partial, point in
+            CGPoint(x: partial.x + point.x, y: partial.y + point.y)
         }
-        let center = CGPoint(x: sumX / CGFloat(points.count), y: sumY / CGFloat(points.count))
+        return CGPoint(x: sum.x / CGFloat(points.count), y: sum.y / CGFloat(points.count))
+    }
 
-        var maxDistance: CGFloat = 0
-        for point in points {
+    private func maxDistance(from center: CGPoint, points: [CGPoint]) -> CGFloat {
+        points.reduce(CGFloat.zero) { currentMax, point in
             let dx = point.x - center.x
             let dy = point.y - center.y
-            let distance = sqrt(dx * dx + dy * dy)
-            maxDistance = max(maxDistance, distance)
+            return max(currentMax, sqrt(dx * dx + dy * dy))
         }
-
-        let radius = max(20, maxDistance * 2.4)
-        return EyeWarp(center: center, radius: radius)
     }
 
     private func aspectFillTransform(imageExtent: CGRect, drawableSize: CGSize) -> CGAffineTransform {
@@ -345,7 +482,7 @@ extension CameraMetalView: AVCaptureVideoDataOutputSampleBufferDelegate {
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let baseImage = CIImage(cvPixelBuffer: pixelBuffer)
-        updateEyeWarpsIfNeeded(pixelBuffer: pixelBuffer, imageSize: baseImage.extent.size)
+        updateFaceWarpsIfNeeded(pixelBuffer: pixelBuffer, imageSize: baseImage.extent.size)
         let filtered = processFrame(baseImage)
 
         stateQueue.async {

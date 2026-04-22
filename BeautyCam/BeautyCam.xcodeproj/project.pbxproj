@@ -6,17 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0BA0A822F98C66B00D6322D /* Assets.xcassets */; };
+		C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */; };
+		C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A862F98C68300D6322D /* ContentView.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		C0BA0A742F98900100D6322D /* BeautyCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeautyCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0BA0A822F98C66B00D6322D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeautyCamApp.swift; sourceTree = "<group>"; };
+		C0BA0A862F98C68300D6322D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		C0BA0A762F98900100D6322D /* BeautyCam */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BeautyCam;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C0BA0A712F98900100D6322D /* Frameworks */ = {
@@ -32,8 +33,10 @@
 		C0BA0A6B2F98900100D6322D = {
 			isa = PBXGroup;
 			children = (
-				C0BA0A762F98900100D6322D /* BeautyCam */,
 				C0BA0A752F98900100D6322D /* Products */,
+				C0BA0A822F98C66B00D6322D /* Assets.xcassets */,
+				C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */,
+				C0BA0A862F98C68300D6322D /* ContentView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -60,9 +63,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				C0BA0A762F98900100D6322D /* BeautyCam */,
-			);
 			name = BeautyCam;
 			packageProductDependencies = (
 			);
@@ -82,6 +82,7 @@
 				TargetAttributes = {
 					C0BA0A732F98900100D6322D = {
 						CreatedOnToolsVersion = 26.4;
+						LastSwiftMigration = 2640;
 					};
 				};
 			};
@@ -109,6 +110,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +121,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */,
+				C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +253,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V539UB4424;
@@ -271,6 +276,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -282,6 +288,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V539UB4424;
