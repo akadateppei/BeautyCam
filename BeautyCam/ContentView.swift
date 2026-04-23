@@ -13,6 +13,10 @@ import SwiftUI
 import UIKit
 import Vision
 
+#if canImport(MediaPipeTasksVision)
+import MediaPipeTasksVision
+#endif
+
 struct ContentView: View {
     @State private var isFaceBeautyEnabled = true
     @State private var eyeSize: Double = 0.25
@@ -88,6 +92,17 @@ private struct CameraView: UIViewRepresentable {
     }
 }
 
+private enum FaceMeshIndexSet {
+    static let leftEye: [Int] = [33, 133, 159, 145, 153, 144, 163, 7]
+    static let rightEye: [Int] = [362, 263, 386, 374, 380, 373, 390, 249]
+    static let nose: [Int] = [1, 2, 5, 98, 327, 195, 4]
+    static let faceOval: [Int] = [
+        10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400,
+        377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
+    ]
+    static let chin = 152
+}
+
 final class CameraMetalView: UIView {
     private struct FeatureAdjustments {
         var eyeSize: CGFloat = 0.25
@@ -122,6 +137,9 @@ final class CameraMetalView: UIView {
     private let ciContext: CIContext
     private let metalView: MTKView
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
+#if canImport(MediaPipeTasksVision)
+    private var faceLandmarker: FaceLandmarker?
+#endif
     private let visionSequenceHandler = VNSequenceRequestHandler()
 
     private var hasConfiguredSession = false
@@ -139,6 +157,7 @@ final class CameraMetalView: UIView {
         metalView = MTKView(frame: .zero, device: device)
 
         super.init(frame: frame)
+        configureFaceLandmarker()
         configureMetalView()
     }
 
@@ -188,6 +207,28 @@ final class CameraMetalView: UIView {
         ])
     }
 
+    private func configureFaceLandmarker() {
+#if canImport(MediaPipeTasksVision)
+        guard let modelPath = Bundle.main.path(forResource: "face_landmarker", ofType: "task") else {
+            return
+        }
+
+        let options = FaceLandmarkerOptions()
+        options.baseOptions.modelAssetPath = modelPath
+        options.runningMode = .video
+        options.numFaces = 1
+        options.minFaceDetectionConfidence = 0.5
+        options.minFacePresenceConfidence = 0.5
+        options.minTrackingConfidence = 0.5
+
+        do {
+            faceLandmarker = try FaceLandmarker(options: options)
+        } catch {
+            faceLandmarker = nil
+        }
+#endif
+    }
+
     private func startCameraIfNeeded() {
         sessionQueue.async {
             guard Bundle.main.object(forInfoDictionaryKey: "NSCameraUsageDescription") != nil else {
@@ -235,7 +276,7 @@ final class CameraMetalView: UIView {
         captureSession.addInput(input)
 
         let output = AVCaptureVideoDataOutput()
-        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         output.alwaysDiscardsLateVideoFrames = true
         output.setSampleBufferDelegate(self, queue: outputQueue)
 
@@ -327,6 +368,10 @@ final class CameraMetalView: UIView {
         }
         guard shouldRunDetection else { return }
 
+        if updateFaceWarpsWithMediaPipe(pixelBuffer: pixelBuffer, imageSize: imageSize) {
+            return
+        }
+
         let request = VNDetectFaceLandmarksRequest()
 
         do {
@@ -347,6 +392,111 @@ final class CameraMetalView: UIView {
             self.faceWarpState = newWarps
         }
     }
+
+    private func updateFaceWarpsWithMediaPipe(pixelBuffer: CVPixelBuffer, imageSize: CGSize) -> Bool {
+#if canImport(MediaPipeTasksVision)
+        guard let faceLandmarker else { return false }
+
+        guard let mpImage = try? MPImage(
+            pixelBuffer: pixelBuffer,
+            orientation: .up
+        ) else {
+            return false
+        }
+
+        let timestamp = Int(CACurrentMediaTime() * 1000)
+        guard let result = try? faceLandmarker.detect(
+            videoFrame: mpImage,
+            timestampInMilliseconds: timestamp
+        ),
+        let landmarks = result.faceLandmarks.first else {
+            return false
+        }
+
+        let newWarps = makeFaceWarpState(from: landmarks, imageSize: imageSize)
+        stateQueue.async {
+            self.faceWarpState = newWarps
+        }
+        return true
+#else
+        return false
+#endif
+    }
+
+#if canImport(MediaPipeTasksVision)
+    private func makeFaceWarpState(from landmarks: [NormalizedLandmark], imageSize: CGSize) -> FaceWarpState {
+        let facePoints = points(from: landmarks, indices: FaceMeshIndexSet.faceOval, imageSize: imageSize)
+        guard !facePoints.isEmpty else { return FaceWarpState() }
+
+        let minX = facePoints.map(\.x).min() ?? 0
+        let maxX = facePoints.map(\.x).max() ?? imageSize.width
+        let minY = facePoints.map(\.y).min() ?? 0
+        let maxY = facePoints.map(\.y).max() ?? imageSize.height
+        let faceRect = CGRect(x: minX, y: minY, width: max(1, maxX - minX), height: max(1, maxY - minY))
+
+        var state = FaceWarpState()
+        let leftEyePoints = points(from: landmarks, indices: FaceMeshIndexSet.leftEye, imageSize: imageSize)
+        let rightEyePoints = points(from: landmarks, indices: FaceMeshIndexSet.rightEye, imageSize: imageSize)
+        if let left = makeWarp(from: leftEyePoints, minRadius: 20, radiusMultiplier: 2.2) {
+            state.eyes.append(left)
+        }
+        if let right = makeWarp(from: rightEyePoints, minRadius: 20, radiusMultiplier: 2.2) {
+            state.eyes.append(right)
+        }
+
+        let nosePoints = points(from: landmarks, indices: FaceMeshIndexSet.nose, imageSize: imageSize)
+        if let nose = makeNoseWarp(from: nosePoints, faceRect: faceRect) {
+            state.nose = nose
+        }
+
+        state.chin = makeChinWarp(from: landmarks, faceRect: faceRect, imageSize: imageSize)
+        return state
+    }
+
+    private func points(from landmarks: [NormalizedLandmark], indices: [Int], imageSize: CGSize) -> [CGPoint] {
+        indices.compactMap { index in
+            guard landmarks.indices.contains(index) else { return nil }
+            let landmark = landmarks[index]
+            return CGPoint(x: CGFloat(landmark.x) * imageSize.width, y: CGFloat(landmark.y) * imageSize.height)
+        }
+    }
+
+    private func makeWarp(from points: [CGPoint], minRadius: CGFloat, radiusMultiplier: CGFloat) -> EyeWarp? {
+        guard !points.isEmpty else { return nil }
+        let center = centroid(of: points)
+        let radius = max(minRadius, maxDistance(from: center, points: points) * radiusMultiplier)
+        return EyeWarp(center: center, radius: radius)
+    }
+
+    private func makeNoseWarp(from points: [CGPoint], faceRect: CGRect) -> EyeWarp? {
+        guard !points.isEmpty else { return nil }
+        let minY = points.map(\.y).min() ?? 0
+        let maxY = points.map(\.y).max() ?? 0
+        let cutoffY = minY + (maxY - minY) * 0.45
+        let lowerNosePoints = points.filter { $0.y <= cutoffY }
+        let target = lowerNosePoints.isEmpty ? points : lowerNosePoints
+        let center = centroid(of: target)
+        let baseRadius = maxDistance(from: center, points: target)
+        let radius = max(14, min(faceRect.width * 0.13, baseRadius * 1.8))
+        return EyeWarp(center: center, radius: radius)
+    }
+
+    private func makeChinWarp(from landmarks: [NormalizedLandmark], faceRect: CGRect, imageSize: CGSize) -> EyeWarp {
+        if landmarks.indices.contains(FaceMeshIndexSet.chin) {
+            let p = landmarks[FaceMeshIndexSet.chin]
+            let chinPoint = CGPoint(x: CGFloat(p.x) * imageSize.width, y: CGFloat(p.y) * imageSize.height)
+            return EyeWarp(
+                center: CGPoint(x: chinPoint.x, y: chinPoint.y + faceRect.height * 0.03),
+                radius: max(30, faceRect.width * 0.20)
+            )
+        }
+
+        return EyeWarp(
+            center: CGPoint(x: faceRect.midX, y: faceRect.minY + faceRect.height * 0.08),
+            radius: max(30, faceRect.width * 0.20)
+        )
+    }
+#endif
 
     private func makeFaceWarpState(from face: VNFaceObservation, imageSize: CGSize) -> FaceWarpState {
         guard let landmarks = face.landmarks else { return FaceWarpState() }
