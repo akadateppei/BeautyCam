@@ -198,8 +198,9 @@ extension MetalFaceRenderer: MTKViewDelegate {
             var su = (clip.x / w + 1.0) * 0.5
             let sv = (1.0 - clip.y / w) * 0.5
 
-            // Slim warp – identical formula to the Metal fragment shader
             let halfW = slimParams.faceHalfWidthScreenU
+
+            // Face slim – identical formula to the Metal fragment shader
             if slimParams.slimAmount > 0 && halfW > 0 {
                 let dx = su - slimParams.faceCenterScreenU
                 let nx = dx / (halfW * 2.0)
@@ -210,12 +211,27 @@ extension MetalFaceRenderer: MTKViewDelegate {
                 su += sign(dx) * halfW * 2.0 * 0.045 * weight
             }
 
+            // Jaw sharpness UV squeeze – identical formula to the Metal fragment shader
+            let jawH = slimParams.jawBottomScreenV - slimParams.jawStartScreenV
+            if slimParams.jawAmount > 0 && jawH > 0 {
+                let dv = sv - slimParams.jawStartScreenV
+                if dv > 0 {
+                    let ny2 = min(dv / jawH, 1.0)
+                    let vertWeight = smoothstep(0.0, 0.35, ny2)
+                    let dx2 = su - slimParams.faceCenterScreenU
+                    let nx2 = abs(dx2) / (halfW * 2.0)
+                    let sideW = smoothstep(0.10, 0.32, nx2) * (1.0 - smoothstep(0.40, 0.60, nx2))
+                    let weight2 = vertWeight * sideW * slimParams.jawAmount
+                    su += sign(dx2) * halfW * 2.0 * 0.06 * weight2
+                }
+            }
+
             let cam = displayInv * SIMD3<Float>(su, sv, 1.0)
             return SIMD2<Float>(cam.x / cam.z, cam.y / cam.z)
         }
 
-        // Vertex positions: warpController handles jaw, eyes, nose, mouth, and boundary
-        // expansion.  Face slim is handled above as a UV-only operation.
+        // Vertex positions: warpController handles eyes, nose, and mouth.
+        // Face slim and jaw sharpness are UV-only (above).
         let warped = warpController.warp(vertices: originalVertices)
 
         guard let vBuf = bufferBuilder.buildVertexBuffer(vertices: warped, uvs: cameraUVs, device: device),
@@ -255,27 +271,38 @@ extension MetalFaceRenderer: MTKViewDelegate {
         anchor: ARFaceAnchor?
     ) -> FaceSlimUniforms {
         let slimAmount = parameters.faceSlim * parameters.overallStrength
-        guard let anchor = anchor, slimAmount > 0 else {
+        let jawAmount  = parameters.jawSharpness * parameters.overallStrength
+        guard let anchor = anchor, slimAmount > 0 || jawAmount > 0 else {
             return FaceSlimUniforms(faceCenterScreenU: 0.5, faceHalfWidthScreenU: 0,
-                                    slimAmount: 0, _pad: 0)
+                                    slimAmount: 0, jawAmount: 0,
+                                    jawStartScreenV: 0, jawBottomScreenV: 0,
+                                    _pad0: 0, _pad1: 0)
         }
         let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
         let viewMat = frame.camera.viewMatrix(for: .portrait)
         let mvp     = proj * viewMat * anchor.transform
 
         var minSU: Float = 1, maxSU: Float = 0
+        var minSV: Float = 1, maxSV: Float = 0
         for v in Array(anchor.geometry.vertices) {
             let clip = mvp * simd_float4(v.x, v.y, v.z, 1.0)
             let w = max(clip.w, 1e-4)
             let su = (clip.x / w + 1.0) * 0.5
+            let sv = (1.0 - clip.y / w) * 0.5
             if su < minSU { minSU = su }
             if su > maxSU { maxSU = su }
+            if sv < minSV { minSV = sv }
+            if sv > maxSV { maxSV = sv }
         }
+        let jawStartV = minSV + (maxSV - minSV) * 0.48  // ~halfway down face
         return FaceSlimUniforms(
             faceCenterScreenU:    (minSU + maxSU) * 0.5,
             faceHalfWidthScreenU: (maxSU - minSU) * 0.5,
             slimAmount: slimAmount,
-            _pad: 0
+            jawAmount:  jawAmount,
+            jawStartScreenV:  jawStartV,
+            jawBottomScreenV: maxSV,
+            _pad0: 0, _pad1: 0
         )
     }
 }
@@ -285,7 +312,11 @@ private struct FaceSlimUniforms {
     var faceCenterScreenU: Float
     var faceHalfWidthScreenU: Float
     var slimAmount: Float
-    var _pad: Float
+    var jawAmount: Float
+    var jawStartScreenV: Float
+    var jawBottomScreenV: Float
+    var _pad0: Float
+    var _pad1: Float
 }
 
 // MARK: - FaceMeshUniforms (Swift mirror of Metal struct)

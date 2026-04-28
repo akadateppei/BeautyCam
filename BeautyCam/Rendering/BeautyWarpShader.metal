@@ -17,12 +17,16 @@ struct FaceMeshUniforms {
     float4x4 modelViewProjectionMatrix;
 };
 
-// Face slim is applied in screen UV space so the background and face mesh warp identically.
+// Face slim and jaw are applied in screen UV space so background and face mesh warp identically.
 struct FaceSlimUniforms {
     float faceCenterScreenU;    // screen U of face center (0–1)
     float faceHalfWidthScreenU; // face half-width in screen U
-    float slimAmount;           // 0 = off, 1 = max
-    float _pad;
+    float slimAmount;           // face slim (0=off, 1=max)
+    float jawAmount;            // jaw sharpness UV squeeze
+    float jawStartScreenV;      // screen V where jaw effect begins
+    float jawBottomScreenV;     // screen V of chin (bottom of face)
+    float _pad0;
+    float _pad1;
 };
 
 // ---- Y/CbCr → RGB helper ----
@@ -74,12 +78,27 @@ fragment float4 cameraFragmentShader(
     // Face slim warp in screen space – same formula as Swift side so boundary is seamless
     if (slim.slimAmount > 0.0 && slim.faceHalfWidthScreenU > 0.0) {
         float dx = screenUV.x - slim.faceCenterScreenU;
-        float nx = dx / (slim.faceHalfWidthScreenU * 2.0);  // –0.5…+0.5 across face
+        float nx = dx / (slim.faceHalfWidthScreenU * 2.0);
         float sideDistance = abs(nx);
         float regionWeight  = smoothstep(0.22, 0.50, sideDistance);
-        float falloffWeight = 1.0 - smoothstep(0.50, 1.00, sideDistance); // fade outside face
+        float falloffWeight = 1.0 - smoothstep(0.50, 1.00, sideDistance);
         float weight = regionWeight * falloffWeight * slim.slimAmount;
         screenUV.x += sign(dx) * slim.faceHalfWidthScreenU * 2.0 * 0.045 * weight;
+    }
+
+    // Jaw sharpness: UV squeeze in lower face region (no vertex movement = no double outline)
+    if (slim.jawAmount > 0.0 && slim.jawBottomScreenV > slim.jawStartScreenV) {
+        float jawH = slim.jawBottomScreenV - slim.jawStartScreenV;
+        float dv   = screenUV.y - slim.jawStartScreenV;
+        if (dv > 0.0) {
+            float ny2 = clamp(dv / jawH, 0.0, 1.0);
+            float vertWeight = smoothstep(0.0, 0.35, ny2);
+            float dx2 = screenUV.x - slim.faceCenterScreenU;
+            float nx2 = abs(dx2) / (slim.faceHalfWidthScreenU * 2.0);
+            float sideW = smoothstep(0.10, 0.32, nx2) * (1.0 - smoothstep(0.40, 0.60, nx2));
+            float weight2 = vertWeight * sideW * slim.jawAmount;
+            screenUV.x += sign(dx2) * slim.faceHalfWidthScreenU * 2.0 * 0.06 * weight2;
+        }
     }
 
     // Convert screen UV → camera UV

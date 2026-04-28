@@ -5,6 +5,7 @@ struct BeautyParameters {
     var jawSharpness: Float
     var eyeScale: Float
     var noseSlim: Float
+    var noseWingSlim: Float
     var mouthAdjust: Float
     var symmetry: Float
     var overallStrength: Float
@@ -14,6 +15,7 @@ struct BeautyParameters {
         jawSharpness: 0.25,
         eyeScale: 0.30,
         noseSlim: 0.20,
+        noseWingSlim: 0.0,
         mouthAdjust: 0.10,
         symmetry: 0.10,
         overallStrength: 1.0
