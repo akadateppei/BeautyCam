@@ -45,7 +45,7 @@ final class MetalFaceRenderer: NSObject {
 
         let pixelFormat: MTLPixelFormat = .bgra8Unorm
 
-        // Background pipeline (no vertex descriptor; vertex_id based)
+        // Background pipeline – vertex shader takes no buffer; fragment shader applies slim warp
         let bgDesc = MTLRenderPipelineDescriptor()
         bgDesc.vertexFunction   = library.makeFunction(name: "backgroundVertexShader")
         bgDesc.fragmentFunction = library.makeFunction(name: "cameraFragmentShader")
@@ -111,16 +111,22 @@ extension MetalFaceRenderer: MTKViewDelegate {
         let viewportSize = view.drawableSize
         let (yTex, cbcrTex) = textureCache.textures(from: frame.capturedImage)
 
-        // 1. Background
+        // Compute slim params from face anchor before drawing background,
+        // so the background warp matches the face mesh warp in the same frame.
+        let slimParams = buildSlimParams(frame: frame, viewportSize: viewportSize,
+                                        anchor: sessionManager.latestFaceAnchor)
+
+        // 1. Background (with face slim warp baked in)
         drawBackground(encoder: encoder, frame: frame, viewportSize: viewportSize,
-                       yTexture: yTex, cbcrTexture: cbcrTex)
+                       yTexture: yTex, cbcrTexture: cbcrTex, slimParams: slimParams)
 
         // 2. Face mesh (reset smoother when face tracking is lost)
         if let anchor = sessionManager.latestFaceAnchor {
             wasFaceTracked = true
             warpController.parameters = parameters
             drawFaceMesh(encoder: encoder, frame: frame, anchor: anchor,
-                         viewportSize: viewportSize, yTexture: yTex, cbcrTexture: cbcrTex)
+                         viewportSize: viewportSize, yTexture: yTex, cbcrTexture: cbcrTex,
+                         slimParams: slimParams)
         } else if wasFaceTracked {
             wasFaceTracked = false
             warpController.reset()
@@ -138,19 +144,22 @@ extension MetalFaceRenderer: MTKViewDelegate {
         frame: ARFrame,
         viewportSize: CGSize,
         yTexture: MTLTexture?,
-        cbcrTexture: MTLTexture?
+        cbcrTexture: MTLTexture?,
+        slimParams: FaceSlimUniforms
     ) {
         guard let y = yTexture, let cbcr = cbcrTexture else { return }
 
-        // displayTransform maps camera→display; invert to get display UV → camera UV for sampling
+        // displayTransform inverted: screen UV → camera UV (used by fragment shader)
         let affine = frame.displayTransform(for: .portrait, viewportSize: viewportSize).inverted()
         var transform = simd_float3x3(affine)
+        var slim = slimParams
 
         encoder.setRenderPipelineState(backgroundPipeline)
         encoder.setFragmentTexture(y,    index: 0)
         encoder.setFragmentTexture(cbcr, index: 1)
         encoder.setFragmentSamplerState(samplerState, index: 0)
-        encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float3x3>.size, index: 1)
+        encoder.setFragmentBytes(&transform, length: MemoryLayout<simd_float3x3>.size, index: 0)
+        encoder.setFragmentBytes(&slim,      length: MemoryLayout<FaceSlimUniforms>.size, index: 1)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 
@@ -162,27 +171,57 @@ extension MetalFaceRenderer: MTKViewDelegate {
         anchor: ARFaceAnchor,
         viewportSize: CGSize,
         yTexture: MTLTexture?,
-        cbcrTexture: MTLTexture?
+        cbcrTexture: MTLTexture?,
+        slimParams: FaceSlimUniforms
     ) {
         guard let y = yTexture, let cbcr = cbcrTexture else { return }
 
         let geometry = anchor.geometry
         let originalVertices = Array(geometry.vertices)
-        let uvs    = Array(geometry.textureCoordinates)
-        // triangleIndices is UnsafePointer<Int16>; each triangle = 3 indices
-        let rawIdx = Array(UnsafeBufferPointer(start: geometry.triangleIndices,
-                                               count: geometry.triangleCount * 3))
+        let rawIdx = Array(geometry.triangleIndices)
 
+        let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
+        let viewMat = frame.camera.viewMatrix(for: .portrait)
+        let mvp     = proj * viewMat * anchor.transform
+        var uniforms = FaceMeshUniforms(modelViewProjectionMatrix: mvp)
+
+        let displayInv = simd_float3x3(
+            frame.displayTransform(for: .portrait, viewportSize: viewportSize).inverted()
+        )
+
+        // For each original vertex: project to screen UV, apply slim warp in screen space,
+        // then convert to camera UV.  This keeps the warp in the same coordinate system as
+        // the background shader so there is no seam at the mesh boundary.
+        let cameraUVs: [SIMD2<Float>] = originalVertices.map { v in
+            let clip = mvp * simd_float4(v.x, v.y, v.z, 1.0)
+            let w = max(clip.w, 1e-4)
+            var su = (clip.x / w + 1.0) * 0.5
+            let sv = (1.0 - clip.y / w) * 0.5
+
+            // Slim warp – identical formula to the Metal fragment shader
+            let halfW = slimParams.faceHalfWidthScreenU
+            if slimParams.slimAmount > 0 && halfW > 0 {
+                let dx = su - slimParams.faceCenterScreenU
+                let nx = dx / (halfW * 2.0)
+                let sideDistance = abs(nx)
+                let regionWeight  = smoothstep(0.22, 0.50, sideDistance)
+                let falloffWeight = 1.0 - smoothstep(0.50, 1.00, sideDistance)
+                let weight = regionWeight * falloffWeight * slimParams.slimAmount
+                su += sign(dx) * halfW * 2.0 * 0.045 * weight
+            }
+
+            let cam = displayInv * SIMD3<Float>(su, sv, 1.0)
+            return SIMD2<Float>(cam.x / cam.z, cam.y / cam.z)
+        }
+
+        // Vertex positions: warpController handles jaw, eyes, nose, mouth, and boundary
+        // expansion.  Face slim is handled above as a UV-only operation.
         let warped = warpController.warp(vertices: originalVertices)
 
-        guard let vBuf = bufferBuilder.buildVertexBuffer(vertices: warped, uvs: uvs, device: device),
+        guard let vBuf = bufferBuilder.buildVertexBuffer(vertices: warped, uvs: cameraUVs, device: device),
               let iBuf = bufferBuilder.buildIndexBuffer(indices: rawIdx, device: device) else {
             return
         }
-
-        let proj = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
-        let view = frame.camera.viewMatrix(for: .portrait)
-        var uniforms = FaceMeshUniforms(modelViewProjectionMatrix: proj * view * anchor.transform)
 
         let indexCount = rawIdx.count
 
@@ -207,6 +246,46 @@ extension MetalFaceRenderer: MTKViewDelegate {
             encoder.setTriangleFillMode(.fill)
         }
     }
+
+    // MARK: Slim params
+
+    private func buildSlimParams(
+        frame: ARFrame,
+        viewportSize: CGSize,
+        anchor: ARFaceAnchor?
+    ) -> FaceSlimUniforms {
+        let slimAmount = parameters.faceSlim * parameters.overallStrength
+        guard let anchor = anchor, slimAmount > 0 else {
+            return FaceSlimUniforms(faceCenterScreenU: 0.5, faceHalfWidthScreenU: 0,
+                                    slimAmount: 0, _pad: 0)
+        }
+        let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
+        let viewMat = frame.camera.viewMatrix(for: .portrait)
+        let mvp     = proj * viewMat * anchor.transform
+
+        var minSU: Float = 1, maxSU: Float = 0
+        for v in Array(anchor.geometry.vertices) {
+            let clip = mvp * simd_float4(v.x, v.y, v.z, 1.0)
+            let w = max(clip.w, 1e-4)
+            let su = (clip.x / w + 1.0) * 0.5
+            if su < minSU { minSU = su }
+            if su > maxSU { maxSU = su }
+        }
+        return FaceSlimUniforms(
+            faceCenterScreenU:    (minSU + maxSU) * 0.5,
+            faceHalfWidthScreenU: (maxSU - minSU) * 0.5,
+            slimAmount: slimAmount,
+            _pad: 0
+        )
+    }
+}
+
+// MARK: - FaceSlimUniforms (Swift mirror of Metal struct; must match layout exactly)
+private struct FaceSlimUniforms {
+    var faceCenterScreenU: Float
+    var faceHalfWidthScreenU: Float
+    var slimAmount: Float
+    var _pad: Float
 }
 
 // MARK: - FaceMeshUniforms (Swift mirror of Metal struct)

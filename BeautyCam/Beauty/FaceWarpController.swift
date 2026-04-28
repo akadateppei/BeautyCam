@@ -8,7 +8,7 @@ final class FaceWarpController {
         guard !vertices.isEmpty else { return vertices }
         let bounds = FaceBounds(vertices: vertices)
         var result = vertices
-        result = applyFaceSlim(result, bounds: bounds)
+        // Face slim is UV-based (MetalFaceRenderer); only shape effects run here.
         result = applyJawSharpness(result, bounds: bounds)
         result = applyEyeScale(result, bounds: bounds)
         result = applyNoseSlim(result, bounds: bounds)
@@ -19,24 +19,6 @@ final class FaceWarpController {
 
     func reset() {
         smoother.reset()
-    }
-
-    // MARK: - Face Slim
-    private func applyFaceSlim(_ vertices: [simd_float3], bounds: FaceBounds) -> [simd_float3] {
-        let amount = parameters.faceSlim * parameters.overallStrength
-        guard amount > 0 else { return vertices }
-        var result = vertices
-        for i in vertices.indices {
-            let v = vertices[i]
-            let n = bounds.normalized(v)
-            let sideDistance = abs(n.x)
-            let regionWeight   = smoothstep(0.22, 0.50, sideDistance)
-            let verticalWeight = 1.0 - smoothstep(0.20, 0.42, abs(n.y))
-            let weight = regionWeight * verticalWeight
-            let side = sign(n.x)
-            result[i].x = v.x - side * bounds.width * 0.045 * amount * weight
-        }
-        return result
     }
 
     // MARK: - Jaw Sharpness

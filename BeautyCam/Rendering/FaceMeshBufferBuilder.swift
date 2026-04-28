@@ -17,13 +17,12 @@ final class FaceMeshBufferBuilder {
 
     func buildVertexBuffer(
         vertices: [simd_float3],
-        uvs: [vector_float2],
+        uvs: [SIMD2<Float>],
         device: MTLDevice
     ) -> MTLBuffer? {
         let count = min(vertices.count, uvs.count)
         guard count > 0 else { return nil }
 
-        // Reuse existing buffer if size matches
         if vertexBuffer == nil || lastVertexCount != count {
             vertexBuffer = device.makeBuffer(
                 length: count * FaceVertex.stride,
@@ -37,7 +36,7 @@ final class FaceMeshBufferBuilder {
         for i in 0..<count {
             ptr[i] = FaceVertex(
                 px: vertices[i].x, py: vertices[i].y, pz: vertices[i].z,
-                u: uvs[i].x,       v: uvs[i].y
+                u: uvs[i].x, v: uvs[i].y
             )
         }
         return buf
