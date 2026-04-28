@@ -1,7 +1,7 @@
-platform :ios, '15.0'
+# No pods — this project uses ARKit and Metal directly.
+platform :ios, '17.0'
 
 target 'BeautyCam' do
   use_frameworks!
-  pod 'MediaPipeTasksVision'
+  # No external dependencies
 end
-
