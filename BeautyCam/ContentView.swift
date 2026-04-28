@@ -29,6 +29,15 @@ struct ContentView: View {
     @State private var parameters = BeautyParameters.default
     @State private var showWireframe = false
     @State private var arNotSupported = false
+    @GestureState private var isSuppressing = false
+
+    private var suppressedParameters: BeautyParameters {
+        isSuppressing ? BeautyParameters(
+            faceSlim: 0, jawSharpness: 0, eyeScale: 0,
+            noseSlim: 0, noseWingSlim: 0, mouthAdjust: 0,
+            symmetry: 0, overallStrength: 0
+        ) : parameters
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -37,10 +46,14 @@ struct ContentView: View {
             } else if let renderer = session.renderer {
                 MetalViewRepresentable(
                     renderer: renderer,
-                    parameters: parameters,
+                    parameters: suppressedParameters,
                     showWireframe: showWireframe
                 )
                 .ignoresSafeArea()
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .updating($isSuppressing) { _, state, _ in state = true }
+                )
             } else {
                 Color.black.ignoresSafeArea()
                 Text("Metal initialization failed")
