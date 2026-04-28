@@ -8,19 +8,41 @@
 
 /* Begin PBXBuildFile section */
 		B919755287C40FDEC26CF1DD /* Pods_BeautyCam.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F34A1311A947BAB1193D63 /* Pods_BeautyCam.framework */; };
+		BCAF017000000000000007AF /* gpupixel.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BCAF014000000000000004AF /* gpupixel.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0BA0A822F98C66B00D6322D /* Assets.xcassets */; };
 		C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */; };
 		C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A862F98C68300D6322D /* ContentView.swift */; };
+		C0BA0A8C2F9F3B4F00D6322D /* GPUPixelBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = BCAF012000000000000002AF /* GPUPixelBridge.mm */; };
+		C0BA0A8F2F9F560B00D6322D /* face_landmarker.task in Resources */ = {isa = PBXBuildFile; fileRef = C0BA0A8D2F9F560B00D6322D /* face_landmarker.task */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BCAF018000000000000008AF /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				BCAF017000000000000007AF /* gpupixel.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		55F3B08C5AEA98BE867FDF55 /* Pods-BeautyCam.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BeautyCam.debug.xcconfig"; path = "Target Support Files/Pods-BeautyCam/Pods-BeautyCam.debug.xcconfig"; sourceTree = "<group>"; };
 		87F34A1311A947BAB1193D63 /* Pods_BeautyCam.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_BeautyCam.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABF77E88AD6FBED04BE44B9A /* Pods-BeautyCam.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BeautyCam.release.xcconfig"; path = "Target Support Files/Pods-BeautyCam/Pods-BeautyCam.release.xcconfig"; sourceTree = "<group>"; };
+		BCAF011000000000000001AF /* GPUPixelBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GPUPixelBridge.h; sourceTree = "<group>"; };
+		BCAF012000000000000002AF /* GPUPixelBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GPUPixelBridge.mm; sourceTree = "<group>"; };
+		BCAF013000000000000003AF /* BeautyCam-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BeautyCam-Bridging-Header.h"; sourceTree = "<group>"; };
+		BCAF014000000000000004AF /* gpupixel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = gpupixel.framework; path = Frameworks/lib/gpupixel.framework; sourceTree = "<group>"; };
 		C0BA0A742F98900100D6322D /* BeautyCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeautyCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0BA0A822F98C66B00D6322D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeautyCamApp.swift; sourceTree = "<group>"; };
 		C0BA0A862F98C68300D6322D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		C0BA0A8D2F9F560B00D6322D /* face_landmarker.task */ = {isa = PBXFileReference; lastKnownFileType = file; path = face_landmarker.task; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				87F34A1311A947BAB1193D63 /* Pods_BeautyCam.framework */,
+				BCAF014000000000000004AF /* gpupixel.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -50,6 +73,10 @@
 				C0BA0A822F98C66B00D6322D /* Assets.xcassets */,
 				C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */,
 				C0BA0A862F98C68300D6322D /* ContentView.swift */,
+				BCAF011000000000000001AF /* GPUPixelBridge.h */,
+				BCAF012000000000000002AF /* GPUPixelBridge.mm */,
+				BCAF013000000000000003AF /* BeautyCam-Bridging-Header.h */,
+				C0BA0A8E2F9F560B00D6322D /* Models */,
 				E70141A1E2C3E019A69012C2 /* Pods */,
 				54BD75CACAC972302F54AF4B /* Frameworks */,
 			);
@@ -63,13 +90,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		C0BA0A8E2F9F560B00D6322D /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				C0BA0A8D2F9F560B00D6322D /* face_landmarker.task */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		E70141A1E2C3E019A69012C2 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
 				55F3B08C5AEA98BE867FDF55 /* Pods-BeautyCam.debug.xcconfig */,
 				ABF77E88AD6FBED04BE44B9A /* Pods-BeautyCam.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -84,6 +118,7 @@
 				C0BA0A702F98900100D6322D /* Sources */,
 				C0BA0A712F98900100D6322D /* Frameworks */,
 				C0BA0A722F98900100D6322D /* Resources */,
+				BCAF018000000000000008AF /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -134,6 +169,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0BA0A8F2F9F560B00D6322D /* face_landmarker.task in Resources */,
 				C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -170,6 +206,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0BA0A8C2F9F3B4F00D6322D /* GPUPixelBridge.mm in Sources */,
 				C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */,
 				C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */,
 			);
@@ -308,6 +345,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V539UB4424;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks/lib",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "うおおおお";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -320,12 +361,42 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-framework",
+					"\"MediaPipeTasksCommon\"",
+					"-framework",
+					"\"MediaPipeTasksVision\"",
+					"-l\"c++\"",
+					"-framework",
+					"\"AVFoundation\"",
+					"-framework",
+					"\"Accelerate\"",
+					"-framework",
+					"\"AssetsLibrary\"",
+					"-framework",
+					"\"CoreFoundation\"",
+					"-framework",
+					"\"CoreGraphics\"",
+					"-framework",
+					"\"CoreImage\"",
+					"-framework",
+					"\"CoreMedia\"",
+					"-framework",
+					"\"CoreVideo\"",
+					"-framework",
+					"\"QuartzCore\"",
+					"-framework",
+					"\"gpupixel\"",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.akadateppei.BeautyCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BeautyCam-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -344,6 +415,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = V539UB4424;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks/lib",
+					"$(",
+					"SRCROOT)/",
+					Frameworks,
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "うおおおお";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -356,12 +434,42 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-framework",
+					"\"MediaPipeTasksCommon\"",
+					"-framework",
+					"\"MediaPipeTasksVision\"",
+					"-l\"c++\"",
+					"-framework",
+					"\"AVFoundation\"",
+					"-framework",
+					"\"Accelerate\"",
+					"-framework",
+					"\"AssetsLibrary\"",
+					"-framework",
+					"\"CoreFoundation\"",
+					"-framework",
+					"\"CoreGraphics\"",
+					"-framework",
+					"\"CoreImage\"",
+					"-framework",
+					"\"CoreMedia\"",
+					"-framework",
+					"\"CoreVideo\"",
+					"-framework",
+					"\"QuartzCore\"",
+					"-framework",
+					"\"gpupixel\"",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.akadateppei.BeautyCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BeautyCam-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
