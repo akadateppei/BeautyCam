@@ -19,14 +19,26 @@ struct FaceMeshUniforms {
 
 // Face slim and jaw are applied in screen UV space so background and face mesh warp identically.
 struct FaceSlimUniforms {
+    // --- row 0 ---
     float faceCenterScreenU;    // screen U of face center (0–1)
     float faceHalfWidthScreenU; // face half-width in screen U
     float slimAmount;           // face slim (0=off, 1=max)
-    float jawAmount;            // jaw sharpness UV squeeze
-    float jawStartScreenV;      // screen V where jaw effect begins
-    float jawBottomScreenV;     // screen V of chin (bottom of face)
-    float skinSmooth;           // skin smoothing strength (0=off, 1=max)
-    float _pad1;
+    float jawAmount;            // jaw (chin tip) sharpness
+    // --- row 1 ---
+    float jawStartScreenV;      // screen V where jaw region begins (~face midpoint)
+    float jawBottomScreenV;     // screen V of chin bottom
+    float skinSmooth;           // skin smoothing strength
+    float eyeScaleAmount;       // eye enlargement (0=off, 1=max)
+    // --- row 2 ---
+    float leftEyeU;             // left eye center screen U
+    float leftEyeV;             // left eye center screen V
+    float rightEyeU;
+    float rightEyeV;
+    // --- row 3 ---
+    float eyeRadiusU;           // eye effect ellipse horizontal radius (screen U)
+    float eyeRadiusV;           // eye effect ellipse vertical radius (screen V)
+    float faceTopScreenV;       // screen V of forehead top (slim starts here)
+    float _pad;
 };
 
 // ---- Skin detection + smoothing ----
@@ -94,29 +106,46 @@ fragment float4 cameraFragmentShader(
 ) {
     float2 screenUV = in.uv;
 
-    // Face slim warp in screen space – same formula as Swift side so boundary is seamless
-    if (slim.slimAmount > 0.0 && slim.faceHalfWidthScreenU > 0.0) {
+    float fullW = slim.faceHalfWidthScreenU * 2.0;
+
+    // Face slim
+    if (slim.slimAmount > 0.0 && fullW > 0.0) {
         float dx = screenUV.x - slim.faceCenterScreenU;
-        float nx = dx / (slim.faceHalfWidthScreenU * 2.0);
-        float sideDistance = abs(nx);
-        float regionWeight  = smoothstep(0.22, 0.50, sideDistance);
-        float falloffWeight = 1.0 - smoothstep(0.50, 1.00, sideDistance);
+        float nx = abs(dx) / fullW;
+        float regionWeight  = smoothstep(0.22, 0.50, nx);
+        float falloffWeight = 1.0 - smoothstep(0.50, 1.00, nx);
         float weight = regionWeight * falloffWeight * slim.slimAmount;
-        screenUV.x += sign(dx) * slim.faceHalfWidthScreenU * 2.0 * 0.045 * weight;
+        screenUV.x += sign(dx) * fullW * 0.045 * weight;
     }
 
-    // Jaw sharpness: UV squeeze in lower face region (no vertex movement = no double outline)
+    // Jaw sharpness: lower face sides
     if (slim.jawAmount > 0.0 && slim.jawBottomScreenV > slim.jawStartScreenV) {
         float jawH = slim.jawBottomScreenV - slim.jawStartScreenV;
         float dv   = screenUV.y - slim.jawStartScreenV;
-        if (dv > 0.0) {
-            float ny2 = clamp(dv / jawH, 0.0, 1.0);
-            float vertWeight = smoothstep(0.0, 0.35, ny2);
-            float dx2 = screenUV.x - slim.faceCenterScreenU;
-            float nx2 = abs(dx2) / (slim.faceHalfWidthScreenU * 2.0);
-            float sideW = smoothstep(0.10, 0.32, nx2) * (1.0 - smoothstep(0.40, 0.60, nx2));
-            float weight2 = vertWeight * sideW * slim.jawAmount;
-            screenUV.x += sign(dx2) * slim.faceHalfWidthScreenU * 2.0 * 0.06 * weight2;
+        if (dv > 0.0 && fullW > 0.0) {
+            float ny2     = clamp(dv / jawH, 0.0, 1.0);
+            float vertW   = smoothstep(0.0, 0.35, ny2);
+            float dx2     = screenUV.x - slim.faceCenterScreenU;
+            float nx2     = abs(dx2) / fullW;
+            float sideW   = smoothstep(0.10, 0.32, nx2) * (1.0 - smoothstep(0.40, 0.60, nx2));
+            float weight2 = vertW * sideW * slim.jawAmount;
+            screenUV.x += sign(dx2) * fullW * 0.06 * weight2;
+        }
+    }
+
+    // Eye enlargement: shift UV toward each eye center (UV-based, no mesh gap)
+    if (slim.eyeScaleAmount > 0.0 && slim.eyeRadiusU > 0.0) {
+        float2 eyeCenters[2] = {float2(slim.leftEyeU,  slim.leftEyeV),
+                                float2(slim.rightEyeU, slim.rightEyeV)};
+        for (int i = 0; i < 2; i++) {
+            float2 dUV  = screenUV - eyeCenters[i];
+            float  normX = dUV.x / slim.eyeRadiusU;
+            float  normY = dUV.y / slim.eyeRadiusV;
+            float  ed    = sqrt(normX * normX + normY * normY);
+            if (ed < 1.0 && ed > 0.001) {
+                float ew = (1.0 - smoothstep(0.0, 1.0, ed)) * slim.eyeScaleAmount;
+                screenUV -= dUV * ew * 0.20;  // pull UV toward eye center → iris appears larger
+            }
         }
     }
 
