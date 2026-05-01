@@ -7,9 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0BA0A822F98C66B00D6322D /* Assets.xcassets */; };
-		C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */; };
-		C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A862F98C68300D6322D /* ContentView.swift */; };
 		BB020001BB020001BB020001 /* ARFaceSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB010001BB010001BB010001 /* ARFaceSessionManager.swift */; };
 		BB020002BB020002BB020002 /* ARFrameProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB010002BB010002BB010002 /* ARFrameProvider.swift */; };
 		BB020003BB020003BB020003 /* MetalFaceRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB010003BB010003BB010003 /* MetalFaceRenderer.swift */; };
@@ -24,13 +21,12 @@
 		BB02000CBB02000CBB02000C /* MetalViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB01000CBB01000CBB01000C /* MetalViewRepresentable.swift */; };
 		BB02000DBB02000DBB02000D /* WarpFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB01000DBB01000DBB01000D /* WarpFunctions.swift */; };
 		BB02000EBB02000EBB02000E /* GeometryUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB01000EBB01000EBB01000E /* GeometryUtils.swift */; };
+		C0BA0A832F98C66B00D6322D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0BA0A822F98C66B00D6322D /* Assets.xcassets */; };
+		C0BA0A852F98C67800D6322D /* BeautyCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */; };
+		C0BA0A872F98C68300D6322D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA0A862F98C68300D6322D /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		C0BA0A742F98900100D6322D /* BeautyCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeautyCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C0BA0A822F98C66B00D6322D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeautyCamApp.swift; sourceTree = "<group>"; };
-		C0BA0A862F98C68300D6322D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BB010001BB010001BB010001 /* ARFaceSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARFaceSessionManager.swift; sourceTree = "<group>"; };
 		BB010002BB010002BB010002 /* ARFrameProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARFrameProvider.swift; sourceTree = "<group>"; };
 		BB010003BB010003BB010003 /* MetalFaceRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalFaceRenderer.swift; sourceTree = "<group>"; };
@@ -45,6 +41,10 @@
 		BB01000CBB01000CBB01000C /* MetalViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalViewRepresentable.swift; sourceTree = "<group>"; };
 		BB01000DBB01000DBB01000D /* WarpFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarpFunctions.swift; sourceTree = "<group>"; };
 		BB01000EBB01000EBB01000E /* GeometryUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryUtils.swift; sourceTree = "<group>"; };
+		C0BA0A742F98900100D6322D /* BeautyCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeautyCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0BA0A822F98C66B00D6322D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeautyCamApp.swift; sourceTree = "<group>"; };
+		C0BA0A862F98C68300D6322D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,29 +58,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C0BA0A6B2F98900100D6322D = {
-			isa = PBXGroup;
-			children = (
-				C0BA0A752F98900100D6322D /* Products */,
-				C0BA0A822F98C66B00D6322D /* Assets.xcassets */,
-				C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */,
-				C0BA0A862F98C68300D6322D /* ContentView.swift */,
-				BB030001BB030001BB030001 /* AR */,
-				BB030002BB030002BB030002 /* Rendering */,
-				BB030003BB030003BB030003 /* Beauty */,
-				BB030004BB030004BB030004 /* UI */,
-				BB030005BB030005BB030005 /* Math */,
-			);
-			sourceTree = "<group>";
-		};
-		C0BA0A752F98900100D6322D /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				C0BA0A742F98900100D6322D /* BeautyCam.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		BB030001BB030001BB030001 /* AR */ = {
 			isa = PBXGroup;
 			children = (
@@ -128,6 +105,29 @@
 				BB01000EBB01000EBB01000E /* GeometryUtils.swift */,
 			);
 			path = Math;
+			sourceTree = "<group>";
+		};
+		C0BA0A6B2F98900100D6322D = {
+			isa = PBXGroup;
+			children = (
+				C0BA0A752F98900100D6322D /* Products */,
+				C0BA0A822F98C66B00D6322D /* Assets.xcassets */,
+				C0BA0A842F98C67800D6322D /* BeautyCamApp.swift */,
+				C0BA0A862F98C68300D6322D /* ContentView.swift */,
+				BB030001BB030001BB030001 /* AR */,
+				BB030002BB030002BB030002 /* Rendering */,
+				BB030003BB030003BB030003 /* Beauty */,
+				BB030004BB030004BB030004 /* UI */,
+				BB030005BB030005BB030005 /* Math */,
+			);
+			sourceTree = "<group>";
+		};
+		C0BA0A752F98900100D6322D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C0BA0A742F98900100D6322D /* BeautyCam.app */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -350,7 +350,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = V539UB4424;
+				DEVELOPMENT_TEAM = R2TRV6Q42C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ARKit顔メッシュを使った美顔エフェクトのためにカメラを使用します。";
@@ -377,7 +377,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = V539UB4424;
+				DEVELOPMENT_TEAM = R2TRV6Q42C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ARKit顔メッシュを使った美顔エフェクトのためにカメラを使用します。";
@@ -417,7 +417,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = C0BA0A6C2F98900100D6322D /* Project object */;
 }

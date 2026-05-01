@@ -11,6 +11,7 @@ struct BeautyControlPanel: View {
                 .tint(.green)
                 .padding(.bottom, 2)
 
+            SliderRow(title: "Smooth",     value: $parameters.skinSmooth)
             SliderRow(title: "Face Slim",  value: $parameters.faceSlim)
             SliderRow(title: "Jaw",        value: $parameters.jawSharpness)
             SliderRow(title: "Eye",        value: $parameters.eyeScale)

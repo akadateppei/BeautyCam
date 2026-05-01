@@ -241,6 +241,8 @@ extension MetalFaceRenderer: MTKViewDelegate {
 
         let indexCount = rawIdx.count
 
+        var slim = slimParams
+
         // Solid face mesh
         encoder.setRenderPipelineState(faceMeshPipeline)
         encoder.setVertexBuffer(vBuf, offset: 0, index: 0)
@@ -248,6 +250,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
         encoder.setFragmentTexture(y,    index: 0)
         encoder.setFragmentTexture(cbcr, index: 1)
         encoder.setFragmentSamplerState(samplerState, index: 0)
+        encoder.setFragmentBytes(&slim, length: MemoryLayout<FaceSlimUniforms>.size, index: 0)
         encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount,
                                       indexType: .uint16, indexBuffer: iBuf, indexBufferOffset: 0)
 
@@ -270,13 +273,14 @@ extension MetalFaceRenderer: MTKViewDelegate {
         viewportSize: CGSize,
         anchor: ARFaceAnchor?
     ) -> FaceSlimUniforms {
-        let slimAmount = parameters.faceSlim * parameters.overallStrength
-        let jawAmount  = parameters.jawSharpness * parameters.overallStrength
-        guard let anchor = anchor, slimAmount > 0 || jawAmount > 0 else {
+        let slimAmount   = parameters.faceSlim * parameters.overallStrength
+        let jawAmount    = parameters.jawSharpness * parameters.overallStrength
+        let skinSmooth   = parameters.skinSmooth * parameters.overallStrength
+        guard let anchor = anchor, slimAmount > 0 || jawAmount > 0 || skinSmooth > 0 else {
             return FaceSlimUniforms(faceCenterScreenU: 0.5, faceHalfWidthScreenU: 0,
                                     slimAmount: 0, jawAmount: 0,
                                     jawStartScreenV: 0, jawBottomScreenV: 0,
-                                    _pad0: 0, _pad1: 0)
+                                    skinSmooth: 0, _pad1: 0)
         }
         let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
         let viewMat = frame.camera.viewMatrix(for: .portrait)
@@ -298,11 +302,12 @@ extension MetalFaceRenderer: MTKViewDelegate {
         return FaceSlimUniforms(
             faceCenterScreenU:    (minSU + maxSU) * 0.5,
             faceHalfWidthScreenU: (maxSU - minSU) * 0.5,
-            slimAmount: slimAmount,
-            jawAmount:  jawAmount,
+            slimAmount:  slimAmount,
+            jawAmount:   jawAmount,
             jawStartScreenV:  jawStartV,
             jawBottomScreenV: maxSV,
-            _pad0: 0, _pad1: 0
+            skinSmooth: skinSmooth,
+            _pad1: 0
         )
     }
 }
@@ -315,7 +320,7 @@ private struct FaceSlimUniforms {
     var jawAmount: Float
     var jawStartScreenV: Float
     var jawBottomScreenV: Float
-    var _pad0: Float
+    var skinSmooth: Float
     var _pad1: Float
 }
 

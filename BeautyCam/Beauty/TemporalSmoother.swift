@@ -2,7 +2,7 @@ import simd
 
 final class TemporalSmoother {
     private var previousVertices: [simd_float3] = []
-    var smoothingFactor: Float = 0.65
+    var smoothingFactor: Float = 0.55
 
     func smooth(_ vertices: [simd_float3]) -> [simd_float3] {
         guard previousVertices.count == vertices.count else {

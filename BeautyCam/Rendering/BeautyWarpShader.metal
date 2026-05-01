@@ -25,9 +25,28 @@ struct FaceSlimUniforms {
     float jawAmount;            // jaw sharpness UV squeeze
     float jawStartScreenV;      // screen V where jaw effect begins
     float jawBottomScreenV;     // screen V of chin (bottom of face)
-    float _pad0;
+    float skinSmooth;           // skin smoothing strength (0=off, 1=max)
     float _pad1;
 };
+
+// ---- Skin detection + smoothing ----
+// Skin tone in CbCr space (full-range): Cb 0.37–0.54, Cr 0.50–0.65
+float skinWeight(float2 cbcr) {
+    float cb = cbcr.r, cr = cbcr.g;
+    float cbMask = smoothstep(0.37, 0.42, cb) * (1.0 - smoothstep(0.51, 0.56, cb));
+    float crMask = smoothstep(0.49, 0.53, cr) * (1.0 - smoothstep(0.62, 0.67, cr));
+    return cbMask * crMask;
+}
+
+// 5-tap cross blur on Y channel; blurRadius in texel units
+float blurY(texture2d<float> tex, sampler s, float2 uv, float blurRadius) {
+    float2 px = blurRadius / float2(tex.get_width(), tex.get_height());
+    return tex.sample(s, uv).r                       * 0.40
+         + tex.sample(s, uv + float2( px.x,    0)).r * 0.15
+         + tex.sample(s, uv + float2(-px.x,    0)).r * 0.15
+         + tex.sample(s, uv + float2(   0,  px.y)).r * 0.15
+         + tex.sample(s, uv + float2(   0, -px.y)).r * 0.15;
+}
 
 // ---- Y/CbCr → RGB helper ----
 // BT.601 full-range (kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
@@ -107,6 +126,16 @@ fragment float4 cameraFragmentShader(
 
     float  y    = yTexture.sample(s, camUV).r;
     float2 cbcr = cbcrTexture.sample(s, camUV).rg;
+
+    // Skin smoothing: blur Y (luminance) in skin-tone regions, preserve CbCr for color
+    if (slim.skinSmooth > 0.0) {
+        float sw = skinWeight(cbcr);
+        if (sw > 0.0) {
+            float yBlurred = blurY(yTexture, s, camUV, 3.5);
+            y = mix(y, yBlurred, sw * slim.skinSmooth);
+        }
+    }
+
     return float4(ycbcrToRGB(y, cbcr), 1.0);
 }
 
@@ -126,10 +155,20 @@ fragment float4 faceFragmentShader(
     VertexOut in [[stage_in]],
     texture2d<float> yTexture    [[texture(0)]],
     texture2d<float> cbcrTexture [[texture(1)]],
-    sampler s [[sampler(0)]]
+    sampler s [[sampler(0)]],
+    constant FaceSlimUniforms& slim [[buffer(0)]]
 ) {
     float  y    = yTexture.sample(s, in.uv).r;
     float2 cbcr = cbcrTexture.sample(s, in.uv).rg;
+
+    if (slim.skinSmooth > 0.0) {
+        float sw = skinWeight(cbcr);
+        if (sw > 0.0) {
+            float yBlurred = blurY(yTexture, s, in.uv, 3.5);
+            y = mix(y, yBlurred, sw * slim.skinSmooth);
+        }
+    }
+
     return float4(ycbcrToRGB(y, cbcr), 1.0);
 }
 
