@@ -6,7 +6,8 @@ final class ARFaceSessionManager: NSObject, ARFrameProviding {
     private(set) var latestFrame: ARFrame?
     private(set) var latestFaceAnchor: ARFaceAnchor?
 
-    var onFaceLost: (() -> Void)?
+    // Stored to allow clean resume after interruption without full reset
+    private var activeConfiguration: ARFaceTrackingConfiguration?
 
     static var isSupported: Bool {
         ARFaceTrackingConfiguration.isSupported
@@ -14,13 +15,14 @@ final class ARFaceSessionManager: NSObject, ARFrameProviding {
 
     func start() {
         guard ARFaceTrackingConfiguration.isSupported else {
-            print("[ARFaceSessionManager] Face tracking is not supported on this device.")
+            print("[ARFaceSessionManager] Face tracking not supported on this device.")
             return
         }
-        let configuration = ARFaceTrackingConfiguration()
-        configuration.isLightEstimationEnabled = true
+        let config = ARFaceTrackingConfiguration()
+        config.isLightEstimationEnabled = false  // unused; disable to save GPU
+        activeConfiguration = config
         session.delegate = self
-        session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+        session.run(config, options: [.resetTracking, .removeExistingAnchors])
     }
 
     func stop() {
@@ -29,13 +31,31 @@ final class ARFaceSessionManager: NSObject, ARFrameProviding {
 }
 
 extension ARFaceSessionManager: ARSessionDelegate {
+
+    // Capture every frame for rendering
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         latestFrame = frame
-        let anchor = frame.anchors.compactMap { $0 as? ARFaceAnchor }.first
-        if anchor == nil, latestFaceAnchor != nil {
-            onFaceLost?()
+    }
+
+    // Face anchor appears
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        if let face = anchors.compactMap({ $0 as? ARFaceAnchor }).first {
+            latestFaceAnchor = face
         }
-        latestFaceAnchor = anchor
+    }
+
+    // Face anchor updates each frame
+    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        if let face = anchors.compactMap({ $0 as? ARFaceAnchor }).first {
+            latestFaceAnchor = face
+        }
+    }
+
+    // Face anchor lost
+    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        if anchors.contains(where: { $0 is ARFaceAnchor }) {
+            latestFaceAnchor = nil
+        }
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
@@ -46,7 +66,9 @@ extension ARFaceSessionManager: ARSessionDelegate {
         print("[ARFaceSessionManager] Session interrupted.")
     }
 
+    // Resume without resetting tracking — preserves face anchor continuity
     func sessionInterruptionEnded(_ session: ARSession) {
-        start()
+        guard let config = activeConfiguration else { return }
+        session.run(config)
     }
 }
