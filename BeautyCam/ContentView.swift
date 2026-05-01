@@ -34,8 +34,7 @@ struct ContentView: View {
     private var suppressedParameters: BeautyParameters {
         isSuppressing ? BeautyParameters(
             skinSmooth: 0, faceSlim: 0, jawSharpness: 0, chinPoint: 0, eyeScale: 0,
-            noseSlim: 0, noseWingSlim: 0, mouthAdjust: 0,
-            symmetry: 0, overallStrength: 0
+            noseSlim: 0, noseWingSlim: 0, mouthAdjust: 0, overallStrength: 0
         ) : parameters
     }
 

@@ -9,7 +9,6 @@ struct BeautyParameters {
     var noseSlim: Float
     var noseWingSlim: Float
     var mouthAdjust: Float
-    var symmetry: Float
     var overallStrength: Float
 
     static let `default` = BeautyParameters(
@@ -21,7 +20,6 @@ struct BeautyParameters {
         noseSlim: 0.20,
         noseWingSlim: 0.0,
         mouthAdjust: 0.10,
-        symmetry: 0.10,
         overallStrength: 1.0
     )
 }

@@ -19,7 +19,6 @@ struct BeautyControlPanel: View {
             SliderRow(title: "Nose",       value: $parameters.noseSlim)
             SliderRow(title: "Alar",       value: $parameters.noseWingSlim)
             SliderRow(title: "Mouth",      value: $parameters.mouthAdjust)
-            SliderRow(title: "Symmetry",   value: $parameters.symmetry)
             SliderRow(title: "Overall",    value: $parameters.overallStrength)
         }
         .padding()

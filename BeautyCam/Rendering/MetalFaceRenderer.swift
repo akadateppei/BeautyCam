@@ -224,8 +224,29 @@ extension MetalFaceRenderer: MTKViewDelegate {
                 }
             }
 
+            // Eye scale: identical to Metal shader (quadratic falloff)
+            if slimParams.eyeScaleAmount > 0 && slimParams.eyeRadiusU > 0 {
+                let pull    = slimParams.eyeScaleAmount * 0.35
+                let eyeRadU = slimParams.eyeRadiusU * 1.4
+                let eyeRadV = slimParams.eyeRadiusV * 1.4
+                let origSU  = su, origSV = sv
+
+                let dLx = origSU - slimParams.leftEyeU
+                let dLy = origSV - slimParams.leftEyeV
+                let nL  = min(sqrt((dLx / eyeRadU) * (dLx / eyeRadU) + (dLy / eyeRadV) * (dLy / eyeRadV)), 1.0)
+                let wL  = pull * (1.0 - nL) * (1.0 - nL)
+
+                let dRx = origSU - slimParams.rightEyeU
+                let dRy = origSV - slimParams.rightEyeV
+                let nR  = min(sqrt((dRx / eyeRadU) * (dRx / eyeRadU) + (dRy / eyeRadV) * (dRy / eyeRadV)), 1.0)
+                let wR  = pull * (1.0 - nR) * (1.0 - nR)
+
+                su -= dLx * wL + dRx * wR
+                sv -= dLy * wL + dRy * wR
+            }
+
             let cam = displayInv * SIMD3<Float>(su, sv, 1.0)
-            return SIMD2<Float>(cam.x / cam.z, cam.y / cam.z)
+            return SIMD2<Float>(cam.x, cam.y)
         }
 
         // Vertex positions: warpController handles eyes, nose, and mouth.
@@ -301,15 +322,26 @@ extension MetalFaceRenderer: MTKViewDelegate {
             if sv > maxSV { maxSV = sv }
         }
 
-        let faceW      = maxSU - minSU
-        let faceH      = maxSV - minSV
+        let faceW       = maxSU - minSU
+        let faceH       = maxSV - minSV
         let faceCenterU = (minSU + maxSU) * 0.5
         let jawStartV   = minSV + faceH * 0.48
-        // Eye centers: ~30% horizontal from center, ~38% down from forehead
-        let eyeOffU     = faceW * 0.30
-        let eyeV        = minSV + faceH * 0.38
-        let eyeRadU     = faceW * 0.14
-        let eyeRadV     = faceH * 0.09
+
+        // Accurate eye centers from ARKit eye transforms (face-local space → project with mvp)
+        let leftClip  = mvp * anchor.leftEyeTransform.columns.3
+        let rightClip = mvp * anchor.rightEyeTransform.columns.3
+        let lw = max(leftClip.w, 1e-4)
+        let rw = max(rightClip.w, 1e-4)
+        let leftEyeU  = (leftClip.x / lw + 1.0) * 0.5
+        let leftEyeV  = (1.0 - leftClip.y / lw) * 0.5
+        let rightEyeU = (rightClip.x / rw + 1.0) * 0.5
+        let rightEyeV = (1.0 - rightClip.y / rw) * 0.5
+
+        // Eye radius: ~45% of inter-eye separation; account for portrait aspect ratio
+        let eyeSepU = abs(rightEyeU - leftEyeU)
+        let aspect  = viewportSize.height > 0 ? Float(viewportSize.height / viewportSize.width) : 1.78
+        let eyeRadU = eyeSepU * 0.45
+        let eyeRadV = eyeRadU / aspect
 
         return FaceSlimUniforms(
             faceCenterScreenU:    faceCenterU,
@@ -320,8 +352,8 @@ extension MetalFaceRenderer: MTKViewDelegate {
             jawBottomScreenV: maxSV,
             skinSmooth:     skinSmooth,
             eyeScaleAmount: eyeScaleAmount,
-            leftEyeU:  faceCenterU - eyeOffU, leftEyeV:  eyeV,
-            rightEyeU: faceCenterU + eyeOffU, rightEyeV: eyeV,
+            leftEyeU:  leftEyeU,  leftEyeV:  leftEyeV,
+            rightEyeU: rightEyeU, rightEyeV: rightEyeV,
             eyeRadiusU: eyeRadU, eyeRadiusV: eyeRadV,
             faceTopScreenV: minSV,
             _pad: 0

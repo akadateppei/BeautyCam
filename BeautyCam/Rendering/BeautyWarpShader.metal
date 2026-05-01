@@ -125,6 +125,24 @@ fragment half4 cameraFragmentShader(
         }
     }
 
+    // Eye scale: local UV compression toward each eye center → eye appears larger
+    // Quadratic (1-n)^2 falloff concentrates the effect at the iris, fading cleanly at radius
+    if (slim.eyeScaleAmount > 0.0 && slim.eyeRadiusU > 0.0) {
+        float  pull   = slim.eyeScaleAmount * 0.35;
+        float2 eyeRad = float2(slim.eyeRadiusU, slim.eyeRadiusV) * 1.4;
+        float2 orig   = screenUV;
+
+        float2 dL = orig - float2(slim.leftEyeU,  slim.leftEyeV);
+        float  nL = clamp(length(dL / eyeRad), 0.0, 1.0);
+        float  wL = pull * (1.0 - nL) * (1.0 - nL);
+
+        float2 dR = orig - float2(slim.rightEyeU, slim.rightEyeV);
+        float  nR = clamp(length(dR / eyeRad), 0.0, 1.0);
+        float  wR = pull * (1.0 - nR) * (1.0 - nR);
+
+        screenUV -= dL * wL + dR * wR;
+    }
+
     // Screen UV → camera UV (displayTransform is affine; z is always 1)
     float2 camUV = (displayTransform * float3(screenUV, 1.0)).xy;
 
