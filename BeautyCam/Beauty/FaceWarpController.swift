@@ -9,6 +9,7 @@ final class FaceWarpController {
         let bounds = FaceBounds(vertices: vertices)
         var result = vertices
         // Eye, jaw, face slim are UV-based in MetalFaceRenderer; no vertex movement here.
+        result = applyChinPoint(result, bounds: bounds)
         result = applyNoseSlim(result, bounds: bounds)
         result = applyNoseWing(result, bounds: bounds)
         result = applyMouthAdjust(result, bounds: bounds)
@@ -18,6 +19,26 @@ final class FaceWarpController {
 
     func reset() {
         smoother.reset()
+    }
+
+    // MARK: - Chin Point
+    private func applyChinPoint(_ vertices: [simd_float3], bounds: FaceBounds) -> [simd_float3] {
+        let amount = parameters.chinPoint * parameters.overallStrength
+        guard amount > 0 else { return vertices }
+        var result = vertices
+        for i in vertices.indices {
+            let v = vertices[i]
+            let n = bounds.normalized(v)
+            let vertWeight   = smoothstep(0.20, 0.48, -n.y)              // lower chin
+            let centerWeight = 1.0 - smoothstep(0.0, 0.18, abs(n.x))    // center only
+            let tipWeight    = vertWeight * centerWeight
+            // Push chin tip downward
+            result[i].y -= bounds.height * 0.028 * amount * tipWeight
+            // Narrow chin sides toward center
+            let sideWeight = smoothstep(0.06, 0.18, abs(n.x)) * vertWeight
+            result[i].x -= sign(n.x) * bounds.width * 0.012 * amount * sideWeight
+        }
+        return result
     }
 
     // MARK: - Nose Slim (nose bridge narrowing)

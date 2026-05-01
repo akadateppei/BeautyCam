@@ -4,6 +4,7 @@ struct BeautyParameters {
     var skinSmooth: Float
     var faceSlim: Float
     var jawSharpness: Float
+    var chinPoint: Float
     var eyeScale: Float
     var noseSlim: Float
     var noseWingSlim: Float
@@ -12,9 +13,10 @@ struct BeautyParameters {
     var overallStrength: Float
 
     static let `default` = BeautyParameters(
-        skinSmooth: 0.50,   // literature: #1 most impactful beauty parameter
+        skinSmooth: 0.50,
         faceSlim: 0.30,
-        jawSharpness: 0.20, // literature: "slightly more defined"
+        jawSharpness: 0.20,
+        chinPoint: 0.0,
         eyeScale: 0.35,
         noseSlim: 0.20,
         noseWingSlim: 0.0,

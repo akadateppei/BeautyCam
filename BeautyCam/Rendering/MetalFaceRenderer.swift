@@ -224,26 +224,6 @@ extension MetalFaceRenderer: MTKViewDelegate {
                 }
             }
 
-            // Eye enlargement UV: pull toward eye center (identical to Metal shader)
-            let eyeRadU = slimParams.eyeRadiusU
-            let eyeRadV = slimParams.eyeRadiusV
-            if slimParams.eyeScaleAmount > 0 && eyeRadU > 0 {
-                let eyeCenters: [(Float, Float)] = [
-                    (slimParams.leftEyeU,  slimParams.leftEyeV),
-                    (slimParams.rightEyeU, slimParams.rightEyeV)
-                ]
-                for (eyeU, eyeV) in eyeCenters {
-                    let dsu = su - eyeU
-                    let dsv = sv - eyeV
-                    let ed  = sqrt((dsu / eyeRadU) * (dsu / eyeRadU) + (dsv / eyeRadV) * (dsv / eyeRadV))
-                    if ed < 1.0 && ed > 0.001 {
-                        let ew = (1.0 - smoothstep(0.0, 1.0, ed)) * slimParams.eyeScaleAmount
-                        su -= dsu * ew * 0.20
-                        sv -= dsv * ew * 0.20
-                    }
-                }
-            }
-
             let cam = displayInv * SIMD3<Float>(su, sv, 1.0)
             return SIMD2<Float>(cam.x / cam.z, cam.y / cam.z)
         }

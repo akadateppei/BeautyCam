@@ -14,6 +14,7 @@ struct BeautyControlPanel: View {
             SliderRow(title: "Smooth",     value: $parameters.skinSmooth)
             SliderRow(title: "Face Slim",  value: $parameters.faceSlim)
             SliderRow(title: "Jaw",        value: $parameters.jawSharpness)
+            SliderRow(title: "Chin",       value: $parameters.chinPoint)
             SliderRow(title: "Eye",        value: $parameters.eyeScale)
             SliderRow(title: "Nose",       value: $parameters.noseSlim)
             SliderRow(title: "Alar",       value: $parameters.noseWingSlim)
