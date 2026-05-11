@@ -201,13 +201,16 @@ extension MetalFaceRenderer: MTKViewDelegate {
             let halfW = slimParams.faceHalfWidthScreenU
             let fullW = halfW * 2.0
 
-            // Face slim (identical to Metal shader)
-            if slimParams.slimAmount > 0 && fullW > 0 {
-                let dx          = su - slimParams.faceCenterScreenU
-                let nx          = abs(dx) / fullW
-                let regionW     = smoothstep(0.22, 0.50, nx)
-                let falloffW    = 1.0 - smoothstep(0.50, 1.00, nx)
-                su += sign(dx) * fullW * 0.045 * regionW * falloffW * slimParams.slimAmount
+            // Face slim (identical to Metal shader) — vertical ramp from temples to jaw
+            let templeV  = slimParams.templeScreenV
+            let jawBotV  = slimParams.jawBottomScreenV
+            if slimParams.slimAmount > 0 && fullW > 0 && jawBotV > templeV {
+                let dx       = su - slimParams.faceCenterScreenU
+                let nx       = abs(dx) / fullW
+                let regionW  = smoothstep(0.22, 0.50, nx)
+                let falloffW = 1.0 - smoothstep(0.50, 1.00, nx)
+                let vGrad    = smoothstep(templeV, jawBotV, sv)
+                su += sign(dx) * fullW * 0.045 * regionW * falloffW * vGrad * slimParams.slimAmount
             }
 
             // Jaw sharpness (identical to Metal shader)
@@ -226,7 +229,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
 
             // Eye scale: identical to Metal shader (quadratic falloff)
             if slimParams.eyeScaleAmount > 0 && slimParams.eyeRadiusU > 0 {
-                let pull    = slimParams.eyeScaleAmount * 0.35
+                let pull    = slimParams.eyeScaleAmount * 0.09
                 let eyeRadU = slimParams.eyeRadiusU * 1.4
                 let eyeRadV = slimParams.eyeRadiusV * 1.4
                 let origSU  = su, origSV = sv
@@ -303,7 +306,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
                 jawStartScreenV: 0, jawBottomScreenV: 0,
                 skinSmooth: 0, eyeScaleAmount: 0,
                 leftEyeU: 0, leftEyeV: 0, rightEyeU: 0, rightEyeV: 0,
-                eyeRadiusU: 0, eyeRadiusV: 0, faceTopScreenV: 0, _pad: 0)
+                eyeRadiusU: 0, eyeRadiusV: 0, faceTopScreenV: 0, templeScreenV: 0)
         }
         let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
         let viewMat = frame.camera.viewMatrix(for: .portrait)
@@ -343,6 +346,9 @@ extension MetalFaceRenderer: MTKViewDelegate {
         let eyeRadU = eyeSepU * 0.45
         let eyeRadV = eyeRadU / aspect
 
+        // Temple V: slightly above eye line; face slim ramps from here down to jaw bottom
+        let templeV = (leftEyeV + rightEyeV) * 0.5 - faceH * 0.02
+
         return FaceSlimUniforms(
             faceCenterScreenU:    faceCenterU,
             faceHalfWidthScreenU: faceW * 0.5,
@@ -356,7 +362,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
             rightEyeU: rightEyeU, rightEyeV: rightEyeV,
             eyeRadiusU: eyeRadU, eyeRadiusV: eyeRadV,
             faceTopScreenV: minSV,
-            _pad: 0
+            templeScreenV: templeV
         )
     }
 }
@@ -378,7 +384,7 @@ private struct FaceSlimUniforms {
     var eyeRadiusU: Float
     var eyeRadiusV: Float
     var faceTopScreenV: Float
-    var _pad: Float
+    var templeScreenV: Float
 }
 
 // MARK: - FaceMeshUniforms (Swift mirror of Metal struct)

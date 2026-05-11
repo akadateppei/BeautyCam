@@ -37,7 +37,7 @@ struct FaceSlimUniforms {
     float eyeRadiusU;
     float eyeRadiusV;
     float faceTopScreenV;
-    float _pad;
+    float templeScreenV;
 };
 
 // BT.601 full-range YCbCr → RGB, compile-time constant
@@ -49,21 +49,35 @@ constant half3x3 kYCbCrToRGB = half3x3(
 
 // ---- Helpers ----
 
-// Skin tone in full-range CbCr: Cb 0.37–0.56, Cr 0.49–0.67
+// Skin tone in full-range CbCr: tighter range to exclude lips/eyes
 half skinWeight(half2 cbcr) {
-    half cbMask = smoothstep(0.37h, 0.42h, cbcr.r) * (1.0h - smoothstep(0.51h, 0.56h, cbcr.r));
-    half crMask = smoothstep(0.49h, 0.53h, cbcr.g) * (1.0h - smoothstep(0.62h, 0.67h, cbcr.g));
+    half cbMask = smoothstep(0.38h, 0.43h, cbcr.r) * (1.0h - smoothstep(0.50h, 0.55h, cbcr.r));
+    half crMask = smoothstep(0.50h, 0.54h, cbcr.g) * (1.0h - smoothstep(0.60h, 0.65h, cbcr.g));
     return cbMask * crMask;
 }
 
-// 5-tap cross blur on Y; texelSize = 1/textureResolution, radius in texels
+// 9-tap cross blur on Y with two radii — wider, smoother skin softening
+// Inner ring at 2 texels, outer ring at 5 texels
 half blurY(texture2d<half> tex, sampler s, float2 uv, float2 texelSize) {
-    float2 px = texelSize * 3.5;
-    return tex.sample(s, uv).r                      * 0.40h
-         + tex.sample(s, uv + float2( px.x,   0)).r * 0.15h
-         + tex.sample(s, uv + float2(-px.x,   0)).r * 0.15h
-         + tex.sample(s, uv + float2(  0,  px.y)).r * 0.15h
-         + tex.sample(s, uv + float2(  0, -px.y)).r * 0.15h;
+    float2 p1 = texelSize * 2.0;
+    float2 p2 = texelSize * 5.0;
+    half c   = tex.sample(s, uv).r;
+    half i1  = tex.sample(s, uv + float2( p1.x,    0)).r
+             + tex.sample(s, uv + float2(-p1.x,    0)).r
+             + tex.sample(s, uv + float2(    0, p1.y)).r
+             + tex.sample(s, uv + float2(    0,-p1.y)).r;
+    half i2  = tex.sample(s, uv + float2( p2.x,    0)).r
+             + tex.sample(s, uv + float2(-p2.x,    0)).r
+             + tex.sample(s, uv + float2(    0, p2.y)).r
+             + tex.sample(s, uv + float2(    0,-p2.y)).r;
+    return c * 0.28h + i1 * 0.12h + i2 * 0.06h;
+}
+
+// Edge-aware skin blend: reduce blend weight where the local Y differs strongly from center
+// (preserves eye/mouth/eyebrow boundaries even inside the skin-colored region)
+half edgeWeight(half centerY, half blurredY) {
+    half d = abs(centerY - blurredY);
+    return 1.0h - smoothstep(0.04h, 0.18h, d);
 }
 
 half4 toRGBA(half y, half2 cbcr) {
@@ -99,12 +113,14 @@ fragment half4 cameraFragmentShader(
     float2 screenUV = in.uv;
     float  fullW    = slim.faceHalfWidthScreenU * 2.0;
 
-    // Face slim
-    if (slim.slimAmount > 0.0 && fullW > 0.0) {
+    // Face slim — keep head size unchanged; ramp from temples down to chin
+    if (slim.slimAmount > 0.0 && fullW > 0.0 && slim.jawBottomScreenV > slim.templeScreenV) {
         float dx     = screenUV.x - slim.faceCenterScreenU;
         float nx     = abs(dx) / fullW;
+        float vGrad  = smoothstep(slim.templeScreenV, slim.jawBottomScreenV, screenUV.y);
         float weight = smoothstep(0.22, 0.50, nx)
                      * (1.0 - smoothstep(0.50, 1.00, nx))
+                     * vGrad
                      * slim.slimAmount;
         screenUV.x  += sign(dx) * fullW * 0.045 * weight;
     }
@@ -128,7 +144,7 @@ fragment half4 cameraFragmentShader(
     // Eye scale: local UV compression toward each eye center → eye appears larger
     // Quadratic (1-n)^2 falloff concentrates the effect at the iris, fading cleanly at radius
     if (slim.eyeScaleAmount > 0.0 && slim.eyeRadiusU > 0.0) {
-        float  pull   = slim.eyeScaleAmount * 0.35;
+        float  pull   = slim.eyeScaleAmount * 0.09;
         float2 eyeRad = float2(slim.eyeRadiusU, slim.eyeRadiusV) * 1.4;
         float2 orig   = screenUV;
 
@@ -146,16 +162,10 @@ fragment half4 cameraFragmentShader(
     // Screen UV → camera UV (displayTransform is affine; z is always 1)
     float2 camUV = (displayTransform * float3(screenUV, 1.0)).xy;
 
+    // Background pass: no skin smoothing here — that's the face-mesh pass's job,
+    // so the effect stays strictly within the face area.
     half  y    = yTexture.sample(s, camUV).r;
     half2 cbcr = cbcrTexture.sample(s, camUV).rg;
-
-    // Skin smoothing: blend blurred Y into skin regions; weight=0 outside skin or when disabled
-    if (slim.skinSmooth > 0.0) {
-        float2 texelSize = 1.0 / float2(yTexture.get_width(), yTexture.get_height());
-        half   blendW    = skinWeight(cbcr) * half(slim.skinSmooth);
-        y = mix(y, blurY(yTexture, s, camUV, texelSize), blendW);
-    }
-
     return toRGBA(y, cbcr);
 }
 
@@ -181,10 +191,14 @@ fragment half4 faceFragmentShader(
     half  y    = yTexture.sample(s, in.uv).r;
     half2 cbcr = cbcrTexture.sample(s, in.uv).rg;
 
+    // Edge-aware skin smoothing: CbCr mask × edge mask × user strength
     if (slim.skinSmooth > 0.0) {
         float2 texelSize = 1.0 / float2(yTexture.get_width(), yTexture.get_height());
-        half   blendW    = skinWeight(cbcr) * half(slim.skinSmooth);
-        y = mix(y, blurY(yTexture, s, in.uv, texelSize), blendW);
+        half   blurred   = blurY(yTexture, s, in.uv, texelSize);
+        half   blendW    = skinWeight(cbcr)
+                         * edgeWeight(y, blurred)
+                         * half(slim.skinSmooth);
+        y = mix(y, blurred, blendW);
     }
 
     return toRGBA(y, cbcr);
