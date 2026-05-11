@@ -229,7 +229,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
 
             // Eye scale: identical to Metal shader (quadratic falloff)
             if slimParams.eyeScaleAmount > 0 && slimParams.eyeRadiusU > 0 {
-                let pull    = slimParams.eyeScaleAmount * 0.09
+                let pull    = slimParams.eyeScaleAmount * 0.13
                 let eyeRadU = slimParams.eyeRadiusU * 1.4
                 let eyeRadV = slimParams.eyeRadiusV * 1.4
                 let origSU  = su, origSV = sv
@@ -299,6 +299,7 @@ extension MetalFaceRenderer: MTKViewDelegate {
         let jawAmount      = parameters.jawSharpness * parameters.overallStrength
         let skinSmooth     = parameters.skinSmooth * parameters.overallStrength
         let eyeScaleAmount = parameters.eyeScale * parameters.overallStrength
+        let eyeShineAmount = parameters.eyeShine * parameters.overallStrength
         guard let anchor = anchor else {
             return FaceSlimUniforms(
                 faceCenterScreenU: 0.5, faceHalfWidthScreenU: 0,
@@ -306,7 +307,8 @@ extension MetalFaceRenderer: MTKViewDelegate {
                 jawStartScreenV: 0, jawBottomScreenV: 0,
                 skinSmooth: 0, eyeScaleAmount: 0,
                 leftEyeU: 0, leftEyeV: 0, rightEyeU: 0, rightEyeV: 0,
-                eyeRadiusU: 0, eyeRadiusV: 0, faceTopScreenV: 0, templeScreenV: 0)
+                eyeRadiusU: 0, eyeRadiusV: 0, faceTopScreenV: 0, templeScreenV: 0,
+                eyeShineAmount: 0, _pad0: 0, _pad1: 0, _pad2: 0)
         }
         let proj    = frame.camera.projectionMatrix(for: .portrait, viewportSize: viewportSize, zNear: 0.001, zFar: 10.0)
         let viewMat = frame.camera.viewMatrix(for: .portrait)
@@ -362,7 +364,9 @@ extension MetalFaceRenderer: MTKViewDelegate {
             rightEyeU: rightEyeU, rightEyeV: rightEyeV,
             eyeRadiusU: eyeRadU, eyeRadiusV: eyeRadV,
             faceTopScreenV: minSV,
-            templeScreenV: templeV
+            templeScreenV: templeV,
+            eyeShineAmount: eyeShineAmount,
+            _pad0: 0, _pad1: 0, _pad2: 0
         )
     }
 }
@@ -385,6 +389,10 @@ private struct FaceSlimUniforms {
     var eyeRadiusV: Float
     var faceTopScreenV: Float
     var templeScreenV: Float
+    var eyeShineAmount: Float
+    var _pad0: Float
+    var _pad1: Float
+    var _pad2: Float
 }
 
 // MARK: - FaceMeshUniforms (Swift mirror of Metal struct)
